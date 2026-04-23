@@ -293,10 +293,14 @@ app.get('/chat', (req, res) => {
   .msg .meta{font-size:11px;color:#6c7086;margin-top:4px;padding:0 4px}
   .msg.user .meta{text-align:right}
 
-  #typing{color:#a6adc8;font-size:14px;padding:8px 14px;display:none;align-items:center;gap:8px}
+  #typing{color:#cdd6f4;font-size:14px;padding:10px 14px;display:none;align-items:center;gap:6px;
+          border-top:1px solid #45475a;background:#1a1a26;flex-shrink:0}
   #typing.show{display:flex}
-  #typing .dots{animation:blink 1.4s infinite}
-  @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+  .t-star{display:inline-block;color:#f9e2af;font-size:18px;line-height:1;
+          animation:t-star-spin 2s linear infinite;will-change:transform}
+  @keyframes t-star-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .t-meta{color:#6c7086;font-size:12px;margin-left:auto;margin-right:8px;
+          font-feature-settings:"tnum";white-space:nowrap}
   #cancel-btn{background:#f38ba8;color:#1e1e2e;border:none;padding:4px 12px;
               border-radius:12px;font-size:12px;font-weight:bold;-webkit-tap-highlight-color:transparent}
 
@@ -381,8 +385,9 @@ app.get('/chat', (req, res) => {
     </div>
   </div>
   <div id="typing">
-    <span class="dots">...</span>
-    <span>Assistant 응답 중 <span id="elapsed"></span></span>
+    <span class="t-star">&#10038;</span>
+    <span><span id="thinking-verb">생각 중</span>…</span>
+    <span class="t-meta"><span id="elapsed">0초</span><span id="tokens-display"></span></span>
     <button id="cancel-btn" onclick="cancelRequest()">중단</button>
   </div>
   <div id="input-area">
@@ -601,16 +606,47 @@ function finalizeStreamingMsg(div, text) {
   else { notifyNewMessage(); }
 }
 
+const THINKING_VERBS = ['생각 중', '고민 중', '사색 중', '숙고 중', '정리 중', '분석 중', '탐색 중', '검토 중'];
+let verbTimer = null, lastTokenCount = 0, verbIdx = 0;
+const verbEl = () => document.getElementById('thinking-verb');
+const tokenEl = () => document.getElementById('tokens-display');
+
+function fmtElapsed(s) {
+  if (s < 60) return s + '초';
+  return Math.floor(s/60) + '분 ' + (s%60) + '초';
+}
+function fmtTokens(n) {
+  if (!n) return '';
+  if (n >= 1000) return ' · \\u2193 ' + (n/1000).toFixed(1) + 'k tokens';
+  return ' · \\u2193 ' + n + ' tokens';
+}
+function updateTokens(n) {
+  if (n && n !== lastTokenCount) {
+    lastTokenCount = n;
+    tokenEl().textContent = fmtTokens(n);
+  }
+}
+
 function showTyping() {
   typingEl.classList.add('show');
   let sec = 0;
-  timer = setInterval(() => { sec++; elapsedEl.textContent = '(' + sec + '초)'; }, 1000);
+  verbIdx = 0; lastTokenCount = 0;
+  verbEl().textContent = THINKING_VERBS[0];
+  elapsedEl.textContent = '0초';
+  tokenEl().textContent = '';
+  timer = setInterval(() => { sec++; elapsedEl.textContent = fmtElapsed(sec); }, 1000);
+  verbTimer = setInterval(() => {
+    verbIdx = (verbIdx + 1) % THINKING_VERBS.length;
+    verbEl().textContent = THINKING_VERBS[verbIdx];
+  }, 2500);
   msgArea.scrollTop = msgArea.scrollHeight;
 }
 function hideTyping() {
   typingEl.classList.remove('show');
   if (timer) { clearInterval(timer); timer = null; }
+  if (verbTimer) { clearInterval(verbTimer); verbTimer = null; }
   elapsedEl.textContent = '';
+  tokenEl().textContent = '';
 }
 
 function stopPolling() {
@@ -649,9 +685,8 @@ async function pollResponse() {
     const data = await r.json();
 
     if (data.chunks && data.chunks.length > 0) {
-      // 첫 청크가 오면 typing 숨기고 스트리밍 버블 생성
+      // 첫 청크 도착 시 스트리밍 버블 생성 (타이핑 인디케이터는 done 시까지 유지 — 토큰/시간 카운트 계속 보이게)
       if (!streamDiv) {
-        hideTyping();
         streamDiv = addStreamingMsg();
       }
       for (const c of data.chunks) {
@@ -660,6 +695,7 @@ async function pollResponse() {
       lastPollIdx = data.index;
       updateStreamingMsg(streamDiv, fullText);
     }
+    if (typeof data.tokens === 'number') updateTokens(data.tokens);
 
     if (data.done) {
       stopPolling();
@@ -920,7 +956,7 @@ app.post('/api/chat', (req, res) => {
   conv.busy = true;
 
   // 응답 버퍼 초기화
-  responseBuffers.set(token, { chunks: [], done: false, error: null });
+  responseBuffers.set(token, { chunks: [], done: false, error: null, tokens: 0 });
 
   // 셸 명령
   if (message.trim().startsWith('!')) {
@@ -982,6 +1018,9 @@ app.post('/api/chat', (req, res) => {
         if (obj.type === 'assistant' && obj.message?.content) {
           for (const block of obj.message.content) {
             if (block.type === 'text' && block.text) buf.chunks.push(block.text);
+          }
+          if (obj.message?.usage?.output_tokens) {
+            buf.tokens += obj.message.usage.output_tokens;
           }
         } else if (obj.type === 'result' && obj.result && buf.chunks.length === 0) {
           buf.chunks.push(obj.result);
@@ -1051,7 +1090,8 @@ app.get('/api/poll', (req, res) => {
     chunks: newChunks,
     index: buf.chunks.length,
     done: buf.done,
-    error: buf.error
+    error: buf.error,
+    tokens: buf.tokens || 0
   };
 
   if (buf.done && from >= buf.chunks.length) {
