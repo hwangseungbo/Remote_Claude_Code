@@ -333,7 +333,7 @@ app.get('/chat', (req, res) => {
                      padding:7px 12px;border-radius:16px;font-size:13px;
                      -webkit-tap-highlight-color:transparent}
 
-  .streaming-cursor::after{content:'\\u2588';animation:cursor-blink .8s infinite}
+  .streaming-cursor::after{content:'█';animation:cursor-blink .8s infinite;color:#89b4fa;margin-left:2px}
   @keyframes cursor-blink{0%,100%{opacity:1}50%{opacity:0}}
 
   /* 접어두기 */
