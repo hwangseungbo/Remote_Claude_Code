@@ -4,4 +4,6 @@ config.json
 server.log
 .omc/
 .claude/
+screenshots/
+Claude Code Remote - standalone.html
 

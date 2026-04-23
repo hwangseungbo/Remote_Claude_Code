@@ -139,7 +139,9 @@ Safari → 공유 버튼 → "홈 화면에 추가"
 
 ```
 ai-assistant-mobile/
-├── server.js              ← 메인 서버
+├── server.js              ← 메인 서버 (HTTP/HTTPS, 인증, Claude subprocess, 폴링 버퍼)
+├── public/
+│   └── chat.html          ← 클라이언트 UI 전체 (HTML+CSS+JS, hot-reload 가능)
 ├── config.example.json    ← 설정 템플릿
 ├── config.json            ← 실제 설정 (직접 생성, git 제외)
 ├── setup.sh               ← 인증서 생성 스크립트
