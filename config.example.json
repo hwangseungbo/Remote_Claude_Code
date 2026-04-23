@@ -1,0 +1,22 @@
+{
+  "auth": {
+    "username": "admin",
+    "password": "changeme"
+  },
+  "ports": {
+    "http": 9000,
+    "https": 9443
+  },
+  "claude": {
+    "path": "claude",
+    "workDir": "."
+  },
+  "session": {
+    "tokenExpiry": 604800,
+    "timeout": 300000
+  },
+  "quickButtons": [
+    { "label": "오늘 할일", "prompt": "오늘 할일" },
+    { "label": "프로젝트 현황", "prompt": "프로젝트 현황" }
+  ]
+}

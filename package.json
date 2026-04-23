@@ -1,0 +1,14 @@
+{
+  "name": "ai-assistant-mobile",
+  "version": "1.0.0",
+  "description": "Mobile web UI for Claude Code CLI — chat-style interface with HTTPS, iOS support, session management",
+  "main": "server.js",
+  "scripts": {
+    "setup": "bash setup.sh",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-ws": "^5.0.2"
+  }
+}
